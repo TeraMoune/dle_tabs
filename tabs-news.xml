@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<dleplugin>
+	<name>Табы в новостях</name>
+	<description></description>
+	<icon></icon>
+	<version></version>
+	<dleversion>13</dleversion>
+	<versioncompare>greater</versioncompare>
+	<mysqlinstall><![CDATA[]]></mysqlinstall>
+	<mysqlupgrade><![CDATA[]]></mysqlupgrade>
+	<mysqlenable><![CDATA[]]></mysqlenable>
+	<mysqldisable><![CDATA[]]></mysqldisable>
+	<mysqldelete><![CDATA[]]></mysqldelete>
+	<file name="engine/classes/parse.class.php">
+		<operation action="after">
+			<searchcode><![CDATA[if( $this->filter_mode ) $source = $this->word_filter( $source );]]></searchcode>
+			<replacecode><![CDATA[$source = $this->build_tabs($source, true);]]></replacecode>
+		</operation>
+		<operation action="after">
+			<searchcode><![CDATA[if( $this->filter_mode ) $txt = $this->word_filter( $txt, false );]]></searchcode>
+			<replacecode><![CDATA[$txt = $this->build_tabs($txt, false);]]></replacecode>
+		</operation>
+		<operation action="before">
+			<searchcode><![CDATA[function build_list( $matches=array() ) {]]></searchcode>
+			<replacecode><![CDATA[function build_tabs($source, $html = ""){
+  	global $config;
+  
+	if ($html == TRUE) {
+
+		preg_match_all("#\[tab\](.+?)\[/tab\]#is", $source, $tab);
+		$num_tab = 1;
+
+		for ($x = 0; $x < count($tab[0]); $x++) {
+
+			preg_match_all("#\[section=(.*?)\](.*?)\[/section\]#si", $tab[1][$x], $tabs);
+
+			for ($i = 0; $i < count($tabs[0]); $i++) {
+              
+				$tabs[1][$i] = stripcslashes($tabs[1][$i]);
+				if( preg_match( "#color=['\"](.+?)['\"]#i", $tabs[1][$i], $ma_color ) ) {
+					$color = " data-color=\"".trim($ma_color[1])."\"";
+					$tabs[1][$i] = preg_replace( "# color=['\"](.+?)['\"]#i", "", $tabs[1][$i] );
+				} else $color = "";
+				
+				if( preg_match( "#title=['\"](.+?)['\"]#i", $tabs[1][$i], $ma_title ) ) {
+					$section_title = "<h1>".trim($ma_title[1])."</h1>";
+					$tabs[1][$i] = preg_replace( "# title=['\"](.+?)['\"]#i", "", $tabs[1][$i] );
+				} else $section_title = "";             
+              
+				$active = ($num_tab == 1)? ' active': '';
+				$title = "<li class=\"tts-tabs-switcher{$active}\"{$color}>".$tabs[1][$i]."</li>";
+				$text  = "<section class=\"tts-tabs-item{$active}\">{$section_title}" . $tabs[2][$i] . "</section>";
+
+				$tabs2[$x] .= $text;
+				$tabs1[$x] .= $title;
+				$num_tab++;
+			}
+			$source = str_replace($tab[0][$x], "<!--TabsBegin--><div class=\"tabs\"><ul class=\"tts-tabs-switchers\">".$tabs1[$x]."</ul>".$tabs2[$x]."</div><!--/TabsEnd-->", $source);
+		}
+	} else {
+		preg_match_all("#<!--TabsBegin-->(.*?)<!--/TabsEnd-->#si", $source, $tb);
+
+		for ($x=0; $x < count($tb[0]); $x++){
+
+			preg_match_all("#<li(.+?)>(.+?)</li>#si",$tb[1][$x], $title);
+			preg_match_all("#<section(.+?)>(<h1>.*?</h1>)?(.+?)</section>#si",$tb[1][$x], $text);
+
+			for ($i = 0; $i < count($title[2]); $i++) {
+              
+				if( preg_match( "#data-color=['\"](.+?)['\"]#i", $title[1][$i], $match ) ) {
+	
+					$color = " color=\"".trim($match[1])."\"";
+	
+				} else $color = "";              
+
+				if( isset($text[2][$i]) AND $text[2][$i] != '' ) $section_title = " title=\"" . preg_replace("#<h1>|</h1>#", "", $text[2][$i]) . "\"";
+				else $section_title = "";              
+              
+				if( $config['allow_comments_wysiwyg'] > 0 ) $tabs2[$x] .="[section=".$title[2][$i]."{$color}{$section_title}]".$text[3][$i]."[/section]<br>";
+				else $tabs2[$x] .="[section=".$title[2][$i]."{$color}{$section_title}]".$text[3][$i]."[/section]\n";
+			}
+          	if( $config['allow_comments_wysiwyg'] > 0 ) {
+              
+				$source = str_replace($tb[0][$x],"[tab]<br>".$tabs2[$x]."[/tab]",$source);
+              
+			} else $source = str_replace($tb[0][$x],"[tab]\n".$tabs2[$x]."[/tab]",$source);
+		}
+	}
+	return $source;
+}]]></replacecode>
+		</operation>
+	</file>
+	<file name="engine/inc/include/inserttag.php">
+		<operation action="before">
+			<searchcode><![CDATA[function setFieldName(which)
+{]]></searchcode>
+			<replacecode><![CDATA[function insert_tabs(){
+doInsert("[tab]\\n[tabs=Таб1]Таб1[/tabs]\\n[tabs=Таб2]Таб2[/tabs]\\n[tabs=Таб3]Таб3[/tabs]\\n[tabs=Таб4]Таб4[/tabs]\\n[/tab]", "", true );
+}]]></replacecode>
+		</operation>
+		<operation action="after">
+			<searchcode><![CDATA[<button type="button" class="btn btn-default btn-sm btn-small" rel="tooltip" title="{$lang['bb_t_s']}" onclick="simpletag('s'); return false;"><span class="editoricon-strikethrough"></span></button>]]></searchcode>
+			<replacecode><![CDATA[<div id="b_tabs" class="editor_button" onclick='insert_tabs()'><img title="Вставка табов" src="engine/skins/bbcodes/images/t.png" width="23" height="25" border="0"></div>]]></replacecode>
+		</operation>
+	</file>
+	<file name="engine/editor/shortnews.php">
+		<operation action="replace">
+			<searchcode><![CDATA['insertHR',]]></searchcode>
+			<replacecode><![CDATA['insertHR', 'insertTabs',]]></replacecode>
+		</operation>
+		<operation action="before">
+			<searchcode><![CDATA[$('.wysiwygeditor').froalaEditor({]]></searchcode>
+			<replacecode><![CDATA[	$.FroalaEditor.DefineIcon('insertTabs', {NAME: 'info'});
+    $.FroalaEditor.RegisterCommand('insertTabs', {
+      title: 'Вставить секции с табами',
+      focus: true,
+      undo: true,
+      refreshAfterCallback: true,
+      callback: function () {
+      	active_editor = this;
+		active_editor.selection.save();
+		active_editor.selection.restore();
+		active_editor.undo.saveStep();
+		active_editor.html.insert('[tab]<br>[tabs=Таб1]Таб1[/tabs]<br>[tabs=Таб2]Таб2[/tabs]<br>[tabs=Таб3]Таб3[/tabs]<br>[tabs=Таб4]Таб4[/tabs]<br>[/tab]', false);
+		active_editor.undo.saveStep();        
+      }
+    });]]></replacecode>
+		</operation>
+	</file>
+	<file name="engine/editor/shortsite.php">
+		<operation action="replace">
+			<searchcode><![CDATA['insertHR',]]></searchcode>
+			<replacecode><![CDATA['insertHR', 'insertTabs',]]></replacecode>
+		</operation>
+		<operation action="before">
+			<searchcode><![CDATA[$('.wysiwygeditor').froalaEditor({]]></searchcode>
+			<replacecode><![CDATA[$.FroalaEditor.DefineIcon('insertTabs', {NAME: 'info'});
+$.FroalaEditor.RegisterCommand('insertTabs', {
+	title: 'Вставить секции с табами',
+	focus: true,
+	undo: true,
+	refreshAfterCallback: true,
+	callback: function () {
+		active_editor = this;
+		active_editor.selection.save();
+		active_editor.selection.restore();
+		active_editor.undo.saveStep();
+		active_editor.html.insert('[tab]<br>[tabs=Таб1]Таб1[/tabs]<br>[tabs=Таб2]Таб2[/tabs]<br>[tabs=Таб3]Таб3[/tabs]<br>[tabs=Таб4]Таб4[/tabs]<br>[/tab]', false);
+		active_editor.undo.saveStep();        
+	}
+});]]></replacecode>
+		</operation>
+	</file>
+	<file name="engine/modules/main.php">
+		<operation action="before">
+			<searchcode><![CDATA[if (strpos ( $tpl->result['content'], "<pre" ) !== false) {]]></searchcode>
+			<replacecode><![CDATA[if (strpos ( $tpl->result['content'], "<!--TabsBegin-->" ) !== false) {
+
+	$js_array[] = "templates/".$config['skin']."/js/jquery.tabsToSelect.js";
+	$onload_scripts[] = "$('.tabs').tabsToSelect();";
+
+}]]></replacecode>
+		</operation>
+	</file>
+	<file name="engine/ajax/editnews.php">
+		<operation action="replace">
+			<searchcode><![CDATA['insertHR',]]></searchcode>
+			<replacecode><![CDATA['insertHR', 'insertTabs',]]></replacecode>
+		</operation>
+		<operation action="before">
+			<searchcode><![CDATA[$('.wysiwygeditor').froalaEditor({]]></searchcode>
+			<replacecode><![CDATA[$.FroalaEditor.DefineIcon('insertTabs', {NAME: 'info'});
+$.FroalaEditor.RegisterCommand('insertTabs', {
+	title: 'Вставить секции с табами',
+	focus: true,
+	undo: true,
+	refreshAfterCallback: true,
+	callback: function () {
+		active_editor = this;
+		active_editor.selection.save();
+		active_editor.selection.restore();
+		active_editor.undo.saveStep();
+		active_editor.html.insert('[tab]<br>[tabs=Таб1]Таб1[/tabs]<br>[tabs=Таб2]Таб2[/tabs]<br>[tabs=Таб3]Таб3[/tabs]<br>[tabs=Таб4]Таб4[/tabs]<br>[/tab]', false);
+		active_editor.undo.saveStep();        
+	}
+});]]></replacecode>
+		</operation>
+	</file>
+</dleplugin>
