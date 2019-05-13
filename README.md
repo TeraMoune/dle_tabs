@@ -9,11 +9,13 @@ DLE TABS ~~FOR CSS~~ JavaScript
 >>
 >> Добавлен `color` добавляющий цветовое оформление.
 >>
->> Использует JavaScript плагин от Пафнутого, и слегка изменённый мной [tabsToSelect](https://github.com/TeraMoune/tabsToSelect) вместо CSS
+>> Использует JavaScript плагин от Пафнутого, и слегка изменённый [tabsToSelect](https://github.com/TeraMoune/tabsToSelect) вместо CSS
+>>
+>> Добавлено `params`, взаимодействующий с настройками табов и `active` заранее устанавливающий активный таб.
 
 **Пример кода табов**
 ```
-[tab]
+[tab params="autoOpen: false" active="2"]
 
 [section=tab1 title="Заголовок"]text1[/section]
 [section=tab2 color="#faceff"]text2[/section]
@@ -25,6 +27,7 @@ DLE TABS ~~FOR CSS~~ JavaScript
 #Инструкция по установке DLE Табов
 --------------
  - Установить xml плагин.
+ - Загрузить js плагин где ему место (template/skin/js)
  - Всё.
 
 Проверялся на 13.0 версии, и не достаточно тщательно :D И так как я использую `FroalaEditor`, то и проверял в основном на нём. Другие редакторы вроде бы тоже могут но пока я не проверял их.
