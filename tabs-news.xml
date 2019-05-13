@@ -1,16 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <dleplugin>
-	<name>Табы в новостях</name>
+	<name>Вкладки табов в новостях</name>
 	<description></description>
 	<icon></icon>
 	<version></version>
 	<dleversion>13</dleversion>
 	<versioncompare>greater</versioncompare>
+	<upgradeurl></upgradeurl>
+	<filedelete>0</filedelete>
+	<needplugin></needplugin>
 	<mysqlinstall><![CDATA[]]></mysqlinstall>
 	<mysqlupgrade><![CDATA[]]></mysqlupgrade>
 	<mysqlenable><![CDATA[]]></mysqlenable>
 	<mysqldisable><![CDATA[]]></mysqldisable>
 	<mysqldelete><![CDATA[]]></mysqldelete>
+	<phpinstall><![CDATA[]]></phpinstall>
+	<phpupgrade><![CDATA[]]></phpupgrade>
+	<phpenable><![CDATA[]]></phpenable>
+	<phpdisable><![CDATA[]]></phpdisable>
+	<phpdelete><![CDATA[]]></phpdelete>
 	<file name="engine/classes/parse.class.php">
 		<operation action="after">
 			<searchcode><![CDATA[if( $this->filter_mode ) $source = $this->word_filter( $source );]]></searchcode>
@@ -27,13 +35,34 @@
   
 	if ($html == TRUE) {
 
-		preg_match_all("#\[tab\](.+?)\[/tab\]#is", $source, $tab);
-		$num_tab = 1;
+		preg_match_all("#\[tab(.*?)\](.+?)\[/tab\]#is", $source, $tab);
 
 		for ($x = 0; $x < count($tab[0]); $x++) {
-
-			preg_match_all("#\[section=(.*?)\](.*?)\[/section\]#si", $tab[1][$x], $tabs);
-
+          
+          	$param_str = trim($tab[1][$x]);
+          	$param_str = stripcslashes($param_str);
+          
+            if( preg_match( "#params=['\"](.+?)['\"]#i", $param_str, $match ) ) {
+              
+               $params['params'] = 'data-params="{' . trim($match[1]) . '}"';
+               $params_tmp = trim($match[1]);
+              
+            }
+          
+            if( preg_match( "#active=['\"](\d+)['\"]#i", $param_str, $match ) ) {
+              
+              	$params['active'] = 'data-active="' . intval($match[1]) . '"';
+                $open = intval($match[1]);
+              
+            } else {
+              
+              if( preg_match( "#autoOpen: false#i", $params_tmp, $match ) ) $open = 0;
+              else $open = 1;
+              
+            }
+          
+			preg_match_all("#\[section=(.*?)\](.*?)\[/section\]#si", $tab[2][$x], $tabs);
+			$num_tab = 1;
 			for ($i = 0; $i < count($tabs[0]); $i++) {
               
 				$tabs[1][$i] = stripcslashes($tabs[1][$i]);
@@ -43,19 +72,23 @@
 				} else $color = "";
 				
 				if( preg_match( "#title=['\"](.+?)['\"]#i", $tabs[1][$i], $ma_title ) ) {
-					$section_title = "<h1>".trim($ma_title[1])."</h1>";
+					$section_title = "<span class=\"tts-tabs-title\">".trim($ma_title[1])."</span>";
 					$tabs[1][$i] = preg_replace( "# title=['\"](.+?)['\"]#i", "", $tabs[1][$i] );
 				} else $section_title = "";             
               
-				$active = ($num_tab == 1)? ' active': '';
+				$active = ($num_tab == $open)? ' active': '';
 				$title = "<li class=\"tts-tabs-switcher{$active}\"{$color}>".$tabs[1][$i]."</li>";
-				$text  = "<section class=\"tts-tabs-item{$active}\">{$section_title}" . $tabs[2][$i] . "</section>";
+				$text  = "<section class=\"tts-tabs-item\">{$section_title}" . $tabs[2][$i] . "</section>";
 
 				$tabs2[$x] .= $text;
 				$tabs1[$x] .= $title;
 				$num_tab++;
 			}
-			$source = str_replace($tab[0][$x], "<!--TabsBegin--><div class=\"tabs\"><ul class=\"tts-tabs-switchers\">".$tabs1[$x]."</ul>".$tabs2[$x]."</div><!--/TabsEnd-->", $source);
+ 
+            if( count($params) ) $params = ' ' . implode(' ', $params);
+            else $params = '';
+          
+			$source = str_replace($tab[0][$x], "<!--TabsBegin--><div class=\"tabs\"{$params}><ul class=\"tts-tabs-switchers\">".$tabs1[$x]."</ul>".$tabs2[$x]."</div><!--/TabsEnd-->", $source);
 		}
 	} else {
 		preg_match_all("#<!--TabsBegin-->(.*?)<!--/TabsEnd-->#si", $source, $tb);
@@ -63,27 +96,43 @@
 		for ($x=0; $x < count($tb[0]); $x++){
 
 			preg_match_all("#<li(.+?)>(.+?)</li>#si",$tb[1][$x], $title);
-			preg_match_all("#<section(.+?)>(<h1>.*?</h1>)?(.+?)</section>#si",$tb[1][$x], $text);
-
+			preg_match_all("#<section(.+?)>(<span class=\"tts-tabs-title\">(.*?)</span>)?(.+?)</section>#si",$tb[1][$x], $text);
+			$params = array();
 			for ($i = 0; $i < count($title[2]); $i++) {
+
+				if( preg_match( "#data-active=['\"](\d+)['\"]#i", $tb[1][$x], $match ) ) {
+	
+					$params['active'] = "active=\"".intval($match[1])."\"";
+	
+				}        
+
+				if( preg_match( "#data-params=['\"]{(.+?)}['\"]#i", $tb[1][$x], $match ) ) {
+	
+					$params['params'] = "params=\"".trim($match[1])."\"";
+	
+				}             
               
 				if( preg_match( "#data-color=['\"](.+?)['\"]#i", $title[1][$i], $match ) ) {
 	
 					$color = " color=\"".trim($match[1])."\"";
 	
-				} else $color = "";              
+				} else $color = "";
 
-				if( isset($text[2][$i]) AND $text[2][$i] != '' ) $section_title = " title=\"" . preg_replace("#<h1>|</h1>#", "", $text[2][$i]) . "\"";
-				else $section_title = "";              
+				if( isset($text[3][$i]) AND $text[3][$i] != '' ) $section_title = " title=\"" . $text[3][$i] . "\"";
+				else $section_title = "";
               
-				if( $config['allow_comments_wysiwyg'] > 0 ) $tabs2[$x] .="[section=".$title[2][$i]."{$color}{$section_title}]".$text[3][$i]."[/section]<br>";
-				else $tabs2[$x] .="[section=".$title[2][$i]."{$color}{$section_title}]".$text[3][$i]."[/section]\n";
+				if( $config['allow_comments_wysiwyg'] > 0 ) $tabs2[$x] .="[section=".$title[2][$i]."{$color}{$section_title}]".$text[4][$i]."[/section]<br>";
+				else $tabs2[$x] .="[section=".$title[2][$i]."{$color}{$section_title}]".$text[4][$i]."[/section]\n";
 			}
+
+            if( count($params) ) $params = ' ' . implode(' ', $params);
+            else $params = '';          
+          
           	if( $config['allow_comments_wysiwyg'] > 0 ) {
               
-				$source = str_replace($tb[0][$x],"[tab]<br>".$tabs2[$x]."[/tab]",$source);
+				$source = str_replace($tb[0][$x],"[tab{$params}]<br>".$tabs2[$x]."[/tab]",$source);
               
-			} else $source = str_replace($tb[0][$x],"[tab]\n".$tabs2[$x]."[/tab]",$source);
+			} else $source = str_replace($tb[0][$x],"[tab{$params}]\n".$tabs2[$x]."[/tab]",$source);
 		}
 	}
 	return $source;
